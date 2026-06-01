@@ -1,0 +1,51 @@
+flowchart TD
+    User["👤 User\n(browser)"]
+    DNS["🌐 DNS\nwww.foobar.com → 8.8.8.8"]
+
+    FW1["🔥 Firewall 1\n(allow 443/80 only)"]
+
+    subgraph LB_Layer["Load Balancer"]
+        LB["⚖️ HAProxy\n+ SSL certificate\n🔒 HTTPS terminates here"]
+        Mon0["📡 Monitoring Client 1\n(Sumo Logic agent)"]
+    end
+
+    FW2["🔥 Firewall 2"]
+    FW3["🔥 Firewall 3"]
+
+    subgraph Server1["🖥️ Server 1"]
+        Nginx1["⚙️ Nginx"]
+        App1["🚀 App Server"]
+        Code1["📁 Codebase"]
+        Mon1["📡 Monitoring Client 2"]
+    end
+
+    subgraph Server2["🖥️ Server 2"]
+        Nginx2["⚙️ Nginx"]
+        App2["🚀 App Server"]
+        Code2["📁 Codebase"]
+        Mon2["📡 Monitoring Client 3"]
+    end
+
+    subgraph DB_Cluster["🗄️ Database Cluster"]
+        Primary["Primary\n✏️ READ + WRITE\n⚠️ SPOF for writes"]
+        Replica["Replica\n📖 READ only"]
+        Primary -->|"replication"| Replica
+    end
+
+    SumoLogic["☁️ Sumo Logic\n(monitoring platform)"]
+
+    User -->|"DNS query"| DNS
+    DNS -->|"8.8.8.8"| User
+    User -->|"HTTPS 🔒"| FW1
+    FW1 --> LB
+    LB -->|"HTTP ⚠️ unencrypted internally"| FW2
+    LB -->|"HTTP ⚠️ unencrypted internally"| FW3
+    FW2 --> Nginx1 --> App1 --> Code1
+    FW3 --> Nginx2 --> App2 --> Code2
+    App1 --> Primary
+    App2 --> Primary
+    App1 --> Replica
+    App2 --> Replica
+    Mon0 -->|"metrics + logs"| SumoLogic
+    Mon1 -->|"metrics + logs"| SumoLogic
+    Mon2 -->|"metrics + logs"| SumoLogic
