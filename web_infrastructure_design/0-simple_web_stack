@@ -1,20 +1,80 @@
-flowchart TD
-    User["👤 User\n(browser)"]
-    DNS["🌐 DNS Server\nfoobar.com → 8.8.8.8"]
-    
-    subgraph Server["🖥️ Server — IP: 8.8.8.8"]
-        Nginx["⚙️ Web Server\n(Nginx)"]
-        AppServer["🚀 Application Server\n(PHP-FPM / Gunicorn)"]
-        CodeBase["📁 Application Files\n(codebase)"]
-        MySQL["🗄️ Database\n(MySQL)"]
-    end
+# Task 0 — Simple Web Stack
 
-    User -->|"1. DNS query: what is www.foobar.com?"| DNS
-    DNS -->|"2. A record → 8.8.8.8"| User
-    User -->|"3. HTTP/HTTPS request"| Nginx
-    Nginx -->|"4. forwards dynamic request"| AppServer
-    AppServer -->|"5. reads codebase"| CodeBase
-    AppServer -->|"6. SQL query"| MySQL
-    MySQL -->|"7. data"| AppServer
-    AppServer -->|"8. HTML response"| Nginx
-    Nginx -->|"9. HTTP response"| User
+## Infrastructure overview
+
+A user wants to access www.foobar.com. Here is what happens step by step,
+and what every component in the infrastructure does.
+
+---
+
+## What is a server?
+
+A server is a physical or virtual machine that provides services to other
+computers (clients) over a network. In this infrastructure, a single server
+hosts all components: the web server, the application server, the codebase,
+and the database.
+
+---
+
+## What is the role of the domain name?
+
+A domain name (foobar.com) is a human-readable alias for an IP address.
+Instead of typing 8.8.8.8, users type www.foobar.com. The DNS system
+translates that name into the IP address so the browser knows where to send
+the request.
+
+---
+
+## What type of DNS record is "www" in www.foobar.com?
+
+"www" is an A record. An A record maps a hostname directly to an IPv4 address.
+Here, www.foobar.com → 8.8.8.8.
+
+---
+
+## What is the role of the web server?
+
+The web server (Nginx) handles incoming HTTP/HTTPS connections from the user's
+browser. It serves static files (HTML, CSS, images) directly, and forwards
+dynamic requests to the application server.
+
+---
+
+## What is the role of the application server?
+
+The application server executes the business logic of the application
+(PHP-FPM, Gunicorn, etc.). It reads the codebase, processes the request,
+queries the database if needed, and returns a response to the web server.
+
+---
+
+## What is the role of the database?
+
+MySQL stores and retrieves persistent data (user accounts, posts, orders,
+etc.). The application server queries it using SQL and uses the results to
+build the response.
+
+---
+
+## What protocol does the server use to communicate with the user?
+
+The server communicates with the user's browser over HTTP or HTTPS, which
+runs on top of TCP/IP.
+
+---
+
+## Issues with this infrastructure
+
+### SPOF (Single Point Of Failure)
+There is only one server. If it goes down (hardware failure, crash, power
+loss), the entire website becomes unavailable. There is no redundancy.
+
+### Downtime during maintenance
+Deploying new code requires restarting Nginx or the application server. During
+that restart window, users get errors. There is no way to do a zero-downtime
+deployment with a single server.
+
+### Cannot scale with high traffic
+A single server has a fixed amount of CPU and RAM. If traffic spikes, the
+server gets overwhelmed and response times degrade or requests fail entirely.
+There is no horizontal scaling possible in this setup.

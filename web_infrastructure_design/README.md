@@ -1,124 +1,64 @@
-#web_infrastructure_design
+# Web Infrastructure Design
+
+This project covers the progressive design of a web infrastructure hosting
+`www.foobar.com`, from a single server to a scaled, secured, and monitored
+multi-server architecture.
 
 ---
-##TASK0 :Simple web stack
 
-**0_simple_web_stack**
+## Task 0 — Simple Web Stack
 
-flowchart TD
-    User["👤 User\n(browser)"]
-    DNS["🌐 DNS Server\nfoobar.com → 8.8.8.8"]
-    
-    subgraph Server["🖥️ Server — IP: 8.8.8.8"]
-        Nginx["⚙️ Web Server\n(Nginx)"]
-        AppServer["🚀 Application Server\n(PHP-FPM / Gunicorn)"]
-        CodeBase["📁 Application Files\n(codebase)"]
-        MySQL["🗄️ Database\n(MySQL)"]
-    end
+Design a one-server infrastructure using a LAMP-style stack. The server hosts
+Nginx (web server), an application server, the codebase, and a MySQL database.
+A DNS A record maps `www.foobar.com` to IP `8.8.8.8`.
 
-    User -->|"1. DNS query: what is www.foobar.com?"| DNS
-    DNS -->|"2. A record → 8.8.8.8"| User
-    User -->|"3. HTTP/HTTPS request"| Nginx
-    Nginx -->|"4. forwards dynamic request"| AppServer
-    AppServer -->|"5. reads codebase"| CodeBase
-    AppServer -->|"6. SQL query"| MySQL
-    MySQL -->|"7. data"| AppServer
-    AppServer -->|"8. HTML response"| Nginx
-    Nginx -->|"9. HTTP response"| User
+Key concepts covered: role of each component, DNS A record, HTTP protocol,
+and the three main weaknesses of a single-server setup (SPOF, maintenance
+downtime, no scalability).
 
+Diagram: `0-simple_web_stack.png`
+Explanation: `0-simple_web_stack`
 
 ---
-##TASK 1 : Distributed web infrastructure
-**1-distributed_web_infrastructure**
 
-flowchart TD
-    User["👤 User\n(browser)"]
-    DNS["🌐 DNS Server\nwww.foobar.com → 8.8.8.8"]
-    LB["⚖️ Load Balancer\n(HAProxy — Round Robin)\n⚠️ SPOF"]
+## Task 1 — Distributed Web Infrastructure
 
-    subgraph Server1["🖥️ Server 1"]
-        Nginx1["⚙️ Nginx"]
-        App1["🚀 App Server"]
-        Code1["📁 Codebase"]
-    end
+Design a three-server infrastructure adding a HAProxy load balancer and a
+second application server. The database layer uses a Primary-Replica
+(Master-Slave) cluster to separate reads from writes.
 
-    subgraph Server2["🖥️ Server 2"]
-        Nginx2["⚙️ Nginx"]
-        App2["🚀 App Server"]
-        Code2["📁 Codebase"]
-    end
+Key concepts covered: Round Robin load balancing, Active-Active vs
+Active-Passive setup, Primary-Replica replication, and the remaining
+weaknesses (SPOF on the load balancer, no security, no monitoring).
 
-    subgraph DB_Cluster["🗄️ Database Cluster"]
-        Primary["Primary (Master)\n✏️ READ + WRITE"]
-        Replica["Replica (Slave)\n📖 READ only"]
-        Primary -->|"replication"| Replica
-    end
-
-    User -->|"DNS query"| DNS
-    DNS -->|"8.8.8.8"| User
-    User -->|"HTTP request"| LB
-    LB -->|"request 1, 3, 5..."| Nginx1
-    LB -->|"request 2, 4, 6..."| Nginx2
-    Nginx1 --> App1 --> Code1
-    Nginx2 --> App2 --> Code2
-    App1 -->|"writes"| Primary
-    App2 -->|"writes"| Primary
-    App1 -->|"reads"| Replica
-    App2 -->|"reads"| Replica
+Diagram: `1-distributed_web_infrastructure.png`
+Explanation: `1-distributed_web_infrastructure`
 
 ---
-##TASK2: Secured and monitored web infrastructure
 
-**2-secured_and_monitored_web_infrastructure**
+## Task 2 — Secured and Monitored Web Infrastructure
 
-flowchart TD
-    User["👤 User\n(browser)"]
-    DNS["🌐 DNS\nwww.foobar.com → 8.8.8.8"]
+Builds on Task 1 by adding three firewalls (one per node), an SSL certificate
+for HTTPS, and three monitoring agents shipping data to Sumo Logic.
 
-    FW1["🔥 Firewall 1\n(allow 443/80 only)"]
+Key concepts covered: firewall rules, end-to-end encryption with TLS, purpose
+of monitoring, how agents collect metrics and logs, how to monitor Nginx QPS,
+and the remaining issues (SSL termination at the LB, single write node,
+mixed-component servers).
 
-    subgraph LB_Layer["Load Balancer"]
-        LB["⚖️ HAProxy\n+ SSL certificate\n🔒 HTTPS terminates here"]
-        Mon0["📡 Monitoring Client 1\n(Sumo Logic agent)"]
-    end
+Diagram: `2-secured_and_monitored_web_infrastructure.png`
+Explanation: `2-secured_and_monitored_web_infrastructure`
 
-    FW2["🔥 Firewall 2"]
-    FW3["🔥 Firewall 3"]
+---
 
-    subgraph Server1["🖥️ Server 1"]
-        Nginx1["⚙️ Nginx"]
-        App1["🚀 App Server"]
-        Code1["📁 Codebase"]
-        Mon1["📡 Monitoring Client 2"]
-    end
+## Task 3 — Scale Up
 
-    subgraph Server2["🖥️ Server 2"]
-        Nginx2["⚙️ Nginx"]
-        App2["🚀 App Server"]
-        Code2["📁 Codebase"]
-        Mon2["📡 Monitoring Client 3"]
-    end
+Separates every component onto its own dedicated server (web server,
+application server, database server) and adds a second HAProxy instance
+clustered with the first to eliminate the load balancer as a SPOF.
 
-    subgraph DB_Cluster["🗄️ Database Cluster"]
-        Primary["Primary\n✏️ READ + WRITE\n⚠️ SPOF for writes"]
-        Replica["Replica\n📖 READ only"]
-        Primary -->|"replication"| Replica
-    end
+Key concepts covered: separation of concerns, independent scaling per layer,
+HAProxy clustering with VRRP/Keepalived for high availability.
 
-    SumoLogic["☁️ Sumo Logic\n(monitoring platform)"]
-
-    User -->|"DNS query"| DNS
-    DNS -->|"8.8.8.8"| User
-    User -->|"HTTPS 🔒"| FW1
-    FW1 --> LB
-    LB -->|"HTTP ⚠️ unencrypted internally"| FW2
-    LB -->|"HTTP ⚠️ unencrypted internally"| FW3
-    FW2 --> Nginx1 --> App1 --> Code1
-    FW3 --> Nginx2 --> App2 --> Code2
-    App1 --> Primary
-    App2 --> Primary
-    App1 --> Replica
-    App2 --> Replica
-    Mon0 -->|"metrics + logs"| SumoLogic
-    Mon1 -->|"metrics + logs"| SumoLogic
-    Mon2 -->|"metrics + logs"| SumoLogic
+Diagram: `3-scale_up.png`
+Explanation: `3-scale_up`

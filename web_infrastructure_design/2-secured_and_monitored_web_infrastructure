@@ -1,51 +1,97 @@
-flowchart TD
-    User["👤 User\n(browser)"]
-    DNS["🌐 DNS\nwww.foobar.com → 8.8.8.8"]
+# Task 2 — Secured and Monitored Web Infrastructure
 
-    FW1["🔥 Firewall 1\n(allow 443/80 only)"]
+## Infrastructure overview
 
-    subgraph LB_Layer["Load Balancer"]
-        LB["⚖️ HAProxy\n+ SSL certificate\n🔒 HTTPS terminates here"]
-        Mon0["📡 Monitoring Client 1\n(Sumo Logic agent)"]
-    end
+Same three-server infrastructure as Task 1, now hardened with firewalls,
+HTTPS encryption via an SSL certificate, and monitoring agents on every node.
 
-    FW2["🔥 Firewall 2"]
-    FW3["🔥 Firewall 3"]
+---
 
-    subgraph Server1["🖥️ Server 1"]
-        Nginx1["⚙️ Nginx"]
-        App1["🚀 App Server"]
-        Code1["📁 Codebase"]
-        Mon1["📡 Monitoring Client 2"]
-    end
+## Why each additional element?
 
-    subgraph Server2["🖥️ Server 2"]
-        Nginx2["⚙️ Nginx"]
-        App2["🚀 App Server"]
-        Code2["📁 Codebase"]
-        Mon2["📡 Monitoring Client 3"]
-    end
+- **3 Firewalls**: one in front of the load balancer and one per backend
+  server. They filter traffic and block unauthorized ports, reducing the attack
+  surface of every machine.
+- **SSL certificate**: enables HTTPS so traffic between the user's browser and
+  the infrastructure is encrypted. Without it, passwords, cookies, and
+  personal data travel in plain text.
+- **3 Monitoring clients**: one agent per server (load balancer + 2 servers).
+  They collect metrics and logs and ship them to a central platform (Sumo
+  Logic) so the team can detect and react to incidents.
 
-    subgraph DB_Cluster["🗄️ Database Cluster"]
-        Primary["Primary\n✏️ READ + WRITE\n⚠️ SPOF for writes"]
-        Replica["Replica\n📖 READ only"]
-        Primary -->|"replication"| Replica
-    end
+---
 
-    SumoLogic["☁️ Sumo Logic\n(monitoring platform)"]
+## What are firewalls for?
 
-    User -->|"DNS query"| DNS
-    DNS -->|"8.8.8.8"| User
-    User -->|"HTTPS 🔒"| FW1
-    FW1 --> LB
-    LB -->|"HTTP ⚠️ unencrypted internally"| FW2
-    LB -->|"HTTP ⚠️ unencrypted internally"| FW3
-    FW2 --> Nginx1 --> App1 --> Code1
-    FW3 --> Nginx2 --> App2 --> Code2
-    App1 --> Primary
-    App2 --> Primary
-    App1 --> Replica
-    App2 --> Replica
-    Mon0 -->|"metrics + logs"| SumoLogic
-    Mon1 -->|"metrics + logs"| SumoLogic
-    Mon2 -->|"metrics + logs"| SumoLogic
+A firewall inspects incoming and outgoing network packets and applies rules to
+allow or block them. For example, only ports 80 (HTTP) and 443 (HTTPS) are
+open to the public. All other ports are blocked, preventing unauthorized
+access to SSH, MySQL, or internal services.
+
+---
+
+## Why serve traffic over HTTPS?
+
+HTTPS uses TLS to encrypt the connection between the user and the server.
+This prevents man-in-the-middle attacks where an attacker on the same network
+could read or modify the data in transit. It also provides authentication
+(the SSL certificate proves the server is the legitimate foobar.com) and is
+required for browser trust indicators and SEO ranking.
+
+---
+
+## What is monitoring used for?
+
+Monitoring tracks the health, performance, and availability of every component
+in real time. It enables the team to detect crashes, high CPU usage, slow
+response times, or abnormal traffic patterns, and to receive alerts before
+users notice a problem.
+
+---
+
+## How does the monitoring tool collect data?
+
+A lightweight agent (e.g. Sumo Logic collector) runs as a background process
+on each server. It reads system metrics (CPU, RAM, disk), tails log files
+(Nginx access/error logs, application logs), and ships the data to the Sumo
+Logic cloud platform over HTTPS at regular intervals.
+
+---
+
+## How to monitor Nginx QPS (Queries Per Second)?
+
+Enable the Nginx stub_status module by adding this to the Nginx config:
+
+    location /nginx_status {
+        stub_status on;
+        allow 127.0.0.1;
+        deny all;
+    }
+
+Then configure the monitoring agent to scrape that endpoint and parse the
+"requests" counter. In Sumo Logic, create a metric that calculates the rate
+of change of that counter per second to get the QPS. Set an alert if QPS
+exceeds a defined threshold.
+
+---
+
+## Issues with this infrastructure
+
+### SSL termination at the load balancer level
+When HAProxy decrypts HTTPS and forwards plain HTTP to the backend servers,
+the internal traffic between the load balancer and the servers is unencrypted.
+If the internal network is compromised, an attacker can read all data. True
+end-to-end encryption requires HTTPS all the way to the backend servers.
+
+### Single MySQL Primary for writes
+Only the Primary node can accept write operations. If the Primary goes down,
+all write queries fail and the application breaks for any action that modifies
+data (login, form submission, order creation, etc.). It is a SPOF for the
+write path.
+
+### All servers run the same components (DB + App + Web)
+Mixing the database, application server, and web server on the same machine
+makes each component compete for the same CPU and RAM. It also means a
+misconfiguration or crash in one component can affect all others. Separating
+concerns onto dedicated servers allows each layer to be scaled, secured, and
+maintained independently.

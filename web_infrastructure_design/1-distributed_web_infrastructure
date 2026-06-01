@@ -1,34 +1,75 @@
-flowchart TD
-    User["👤 User\n(browser)"]
-    DNS["🌐 DNS Server\nwww.foobar.com → 8.8.8.8"]
-    LB["⚖️ Load Balancer\n(HAProxy — Round Robin)\n⚠️ SPOF"]
+# Task 1 — Distributed Web Infrastructure
 
-    subgraph Server1["🖥️ Server 1"]
-        Nginx1["⚙️ Nginx"]
-        App1["🚀 App Server"]
-        Code1["📁 Codebase"]
-    end
+## Infrastructure overview
 
-    subgraph Server2["🖥️ Server 2"]
-        Nginx2["⚙️ Nginx"]
-        App2["🚀 App Server"]
-        Code2["📁 Codebase"]
-    end
+Three-server infrastructure hosting www.foobar.com, with a load balancer
+distributing traffic across two identical servers and a MySQL Primary-Replica
+database cluster.
 
-    subgraph DB_Cluster["🗄️ Database Cluster"]
-        Primary["Primary (Master)\n✏️ READ + WRITE"]
-        Replica["Replica (Slave)\n📖 READ only"]
-        Primary -->|"replication"| Replica
-    end
+---
 
-    User -->|"DNS query"| DNS
-    DNS -->|"8.8.8.8"| User
-    User -->|"HTTP request"| LB
-    LB -->|"request 1, 3, 5..."| Nginx1
-    LB -->|"request 2, 4, 6..."| Nginx2
-    Nginx1 --> App1 --> Code1
-    Nginx2 --> App2 --> Code2
-    App1 -->|"writes"| Primary
-    App2 -->|"writes"| Primary
-    App1 -->|"reads"| Replica
-    App2 -->|"reads"| Replica
+## Why each additional element?
+
+- **Load balancer (HAProxy)**: distributes incoming traffic across multiple
+  servers so no single server is overwhelmed, and provides redundancy at the
+  application layer.
+- **2nd server**: if Server 1 fails, Server 2 continues serving requests.
+  Redundancy eliminates the single point of failure at the server level.
+- **MySQL Primary-Replica cluster**: separates read and write operations for
+  better performance and provides a copy of the data in case the Primary fails.
+
+---
+
+## Load balancer distribution algorithm
+
+HAProxy is configured with the **Round Robin** algorithm. Each new incoming
+request is forwarded to the next server in turn:
+request 1 → Server 1, request 2 → Server 2, request 3 → Server 1, and so on.
+This distributes the load evenly when both servers have equal capacity.
+
+---
+
+## Active-Active vs Active-Passive
+
+This setup uses **Active-Active**: both servers receive and handle traffic
+simultaneously. Resources on both machines are used at all times, which
+maximises throughput.
+
+**Active-Passive** is different: one server handles all traffic while the
+other sits idle, ready to take over only if the active server fails.
+Active-Passive wastes resources but can be simpler to manage.
+
+---
+
+## How Primary-Replica (Master-Slave) works
+
+The Primary node accepts all write operations (INSERT, UPDATE, DELETE). Every
+change is recorded in the binary log and replicated asynchronously to the
+Replica node. The Replica keeps an up-to-date copy of the data and handles
+read queries to offload the Primary.
+
+---
+
+## Primary node vs Replica node — from the application's perspective
+
+- **Primary**: the application sends all writes here. This is the source of
+  truth for the database.
+- **Replica**: the application can send read queries here to reduce load on
+  the Primary. However, the Replica cannot accept writes — sending a write to
+  it would either be rejected or cause data inconsistency.
+
+---
+
+## Issues with this infrastructure
+
+### SPOF
+The load balancer itself is a single point of failure. If HAProxy goes down,
+no request reaches either server and the site is completely unavailable.
+
+### Security issues
+There is no firewall — every port on every machine is exposed. There is no
+HTTPS — traffic travels in plain text and can be intercepted.
+
+### No monitoring
+There is no alerting system. If a server crashes, a disk fills up, or
+response times spike, nobody is notified automatically.

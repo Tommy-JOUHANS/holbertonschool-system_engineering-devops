@@ -1,0 +1,7 @@
+## Task 3 — Scale Up
+
+3-scale_up.png shows a multi-tier architecture with separate servers for the web layer, application layer, and database layer.
+
+Two HAProxy instances are clustered with VRRP/Keepalived so the load balancer is no longer a single point of failure. Client traffic goes to the HAProxy cluster, which forwards requests to the dedicated web server. The web server passes application requests to the application server, and the application server queries the database server.
+
+This design supports independent scaling of each layer and isolates failures, while HAProxy clustering provides high availability for the front end.
