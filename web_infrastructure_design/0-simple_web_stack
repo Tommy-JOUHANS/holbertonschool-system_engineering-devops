@@ -7,6 +7,10 @@ and what every component in the infrastructure does.
 
 ---
 
+![0-simple_web_stack](0-simple_web_stack.png)
+
+---
+
 ## What is a server?
 
 A server is a physical or virtual machine that provides services to other
