@@ -23,7 +23,6 @@ Explanation: `0-simple_web_stack`
 
 ![0-simple_web_stack](0-simple_web_stack.png)
 
----
 
 ---
 
@@ -41,6 +40,8 @@ Diagram: `1-distributed_web_infrastructure.png`
 Explanation: `1-distributed_web_infrastructure`
 
 ---
+![1-distributed_web_infrastructure](1-distributed_web_infrastructure.png)
+---
 
 ## Task 2 — Secured and Monitored Web Infrastructure
 
@@ -56,6 +57,10 @@ Diagram: `2-secured_and_monitored_web_infrastructure.png`
 Explanation: `2-secured_and_monitored_web_infrastructure`
 
 ---
+![2-secured_and_monitored_web_infrastructure](2-secured_and_monitored_web_infrastructure.png)
+---
+
+
 
 ## Task 3 — Scale Up
 
@@ -68,3 +73,8 @@ HAProxy clustering with VRRP/Keepalived for high availability.
 
 Diagram: `3-scale_up.png`
 Explanation: `3-scale_up`
+
+
+---
+![3-scale-up](3-scale_up.png)
+---
