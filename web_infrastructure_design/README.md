@@ -21,6 +21,12 @@ Explanation: `0-simple_web_stack`
 
 ---
 
+![0-simple_web_stack](0-simple_web_stack.png)
+
+---
+
+---
+
 ## Task 1 — Distributed Web Infrastructure
 
 Design a three-server infrastructure adding a HAProxy load balancer and a
