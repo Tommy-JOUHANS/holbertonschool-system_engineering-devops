@@ -5,11 +5,7 @@
 A user wants to access www.foobar.com. Here is what happens step by step,
 and what every component in the infrastructure does.
 
----
 
-![0-simple_web_stack](0-simple_web_stack.png)
-
----
 
 ## What is a server?
 
